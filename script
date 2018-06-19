@@ -1,0 +1,74 @@
+var sheetsNames = [ "SheetUser1", "SheetUser2", "SheetUser3"];
+var instagramAccounts = [ "IGusername1", "IGusername2", "IGusername3"];
+
+function insertAllFollowerCount() {
+  for(var index = 0; index < sheetsNames.length;index++){
+    Logger.log(this.sheetsNames[index]);
+    Logger.log(this.instagramAccounts[index]);
+    insertStats(index);
+  }
+ };
+
+function insertFollowerCount() {
+  insertStats(0);
+ };
+
+function insertStats(index){
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(this.sheetsNames[index]);
+  accountdata = getInstagramData(this.instagramAccounts[index]);
+  var nextRow = getLastRow("A", index);  
+  var cell = sheet.getRange('a1');
+  cell.offset(nextRow, 0).setValue(Utilities.formatDate(new Date(), "GMT+02:00", "dd-MM-yyyy"));
+  cell.offset(nextRow, 1).setValue(accountdata.followerCount);
+  cell.offset(nextRow, 2).setValue(accountdata.followCount);
+  cell.offset(nextRow, 3).setValue(accountdata.mediaCount);
+  cell.offset(nextRow, 4).setValue(accountdata.totalLikes);
+  cell.offset(nextRow, 5).setValue(accountdata.totalComments);
+  cell.offset(nextRow, 6).setValue(accountdata.EngagementRatio);
+}
+
+function getInstagramData(username) {
+  var r = new RegExp('<script type="text\/javascript">' + 
+                   '([^{]+?({.*profile_pic_url.*})[^}]+?)' +
+                   '<\/script>');
+  var url = "https://www.instagram.com/" + username, totalComments = 0, totalLikes = 0;
+  var source = UrlFetchApp.fetch(url).getContentText();
+  var jsonStr = source.match(r)[2];
+  var data = JSON.parse(jsonStr);
+  console.log('data', data);
+  var oldVariantOfData = data['entry_data']['ProfilePage'][0];
+  console.log('oldVariantOfData', oldVariantOfData);
+ 
+    for(var i = 0; i < 12; i++) {
+      var eottm = oldVariantOfData.graphql.user.edge_owner_to_timeline_media.edges[i];
+      if(eottm != undefined){
+        totalComments += parseInt(eottm.node.edge_media_to_comment.count);
+        totalLikes += parseInt(eottm.node.edge_liked_by.count);
+      }
+   };
+  
+  return {
+    followerCount : oldVariantOfData.graphql.user.edge_followed_by.count,
+    followCount : oldVariantOfData.graphql.user.edge_follow.count, 
+    mediaCount : oldVariantOfData.graphql.user.edge_owner_to_timeline_media.count,
+    totalComments : totalComments,
+    totalLikes : totalLikes,
+    EngagementRatio : (((totalLikes+totalComments))/oldVariantOfData.graphql.user.edge_followed_by.count)/12
+  }  
+}
+
+function getLastRow(column, index) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(this.sheetsNames[index]);
+  var range = sheet.getRange(column + "1:" + column);
+  var values = range.getValues();
+  var newarr = [];
+  var count = 0;
+  for (var i = 0; i < range.getLastRow(); i++) {
+    if (values[i][0]) {
+      newarr.push(values[i][0]);
+    }
+  }
+  return newarr.length;
+}
